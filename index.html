@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>심플 랜덤 숫자 뽑기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Nanum+Round&display=swap');
+        
+        body {
+            font-family: 'Nanum Round', sans-serif;
+            background-color: #f0f4f8;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .card {
+            background: white;
+            border-radius: 2rem;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            width: 90%;
+            max-width: 400px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .number-display {
+            font-size: 5rem;
+            font-weight: 800;
+            color: #4a90e2;
+            margin: 1.5rem 0;
+            height: 120px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .btn {
+            transition: transform 0.1s active;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .btn:active {
+            transform: scale(0.95);
+        }
+
+        .history-dot {
+            width: 30px;
+            height: 30px;
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            background: #e2e8f0;
+            border-radius: 50%;
+            margin: 2px;
+            font-size: 0.75rem;
+            color: #64748b;
+        }
+
+        .history-dot.active {
+            background: #4a90e2;
+            color: white;
+        }
+
+        /* 애니메이션 효과 */
+        @keyframes pop {
+            0% { transform: scale(0.5); opacity: 0; }
+            80% { transform: scale(1.1); }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        .pop-animation {
+            animation: pop 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body>
+
+<div class="card" id="app">
+    <!-- 설정 화면 -->
+    <div id="setup-view">
+        <h1 class="text-2xl font-bold text-gray-700 mb-6">숫자 범위를 정해주세요</h1>
+        <p class="text-gray-500 mb-2">1부터 어디까지 뽑을까요?</p>
+        
+        <div class="flex items-center justify-center space-x-6 my-8">
+            <button onclick="changeMax(-1)" class="btn w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-bold text-gray-600 hover:bg-gray-200">-</button>
+            <span id="max-display" class="text-5xl font-extrabold text-blue-500">10</span>
+            <button onclick="changeMax(1)" class="btn w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-2xl font-bold text-gray-600 hover:bg-gray-200">+</button>
+        </div>
+
+        <button onclick="startPicking()" class="btn w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 hover:bg-blue-600">뽑기 시작!</button>
+    </div>
+
+    <!-- 결과 화면 (처음엔 숨김) -->
+    <div id="result-view" class="hidden">
+        <h2 class="text-xl font-bold text-gray-700">과연 결과는?</h2>
+        
+        <div id="number-result" class="number-display">?</div>
+        
+        <div id="remaining-info" class="text-sm text-gray-400 mb-4">남은 숫자: <span id="remaining-count">0</span>개</div>
+
+        <div class="flex flex-col space-y-3">
+            <button id="next-btn" onclick="pickNext()" class="btn w-full py-4 bg-blue-500 text-white rounded-2xl font-bold text-lg shadow-lg shadow-blue-200 hover:bg-blue-600">다른 숫자 뽑기</button>
+            <button onclick="resetAll()" class="btn w-full py-4 bg-gray-100 text-gray-600 rounded-2xl font-bold text-lg hover:bg-gray-200">새로 시작</button>
+        </div>
+
+        <div class="mt-8">
+            <p class="text-xs text-gray-400 mb-2 uppercase tracking-widest font-bold">진행 상황</p>
+            <div id="history-container" class="flex flex-wrap justify-center"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let maxNumber = 10;
+    let availableNumbers = [];
+    let pickedNumbers = [];
+
+    const setupView = document.getElementById('setup-view');
+    const resultView = document.getElementById('result-view');
+    const maxDisplay = document.getElementById('max-display');
+    const numberResult = document.getElementById('number-result');
+    const remainingCount = document.getElementById('remaining-count');
+    const historyContainer = document.getElementById('history-container');
+    const nextBtn = document.getElementById('next-btn');
+
+    // 최대 숫자 조절
+    function changeMax(delta) {
+        maxNumber = Math.max(1, Math.min(100, maxNumber + delta));
+        maxDisplay.innerText = maxNumber;
+    }
+
+    // 뽑기 시작
+    function startPicking() {
+        availableNumbers = Array.from({length: maxNumber}, (_, i) => i + 1);
+        pickedNumbers = [];
+        
+        setupView.classList.add('hidden');
+        resultView.classList.remove('hidden');
+        
+        initHistoryDots();
+        pickNext();
+    }
+
+    // 기록 도트 초기화
+    function initHistoryDots() {
+        historyContainer.innerHTML = '';
+        for (let i = 1; i <= maxNumber; i++) {
+            const dot = document.createElement('div');
+            dot.id = `dot-${i}`;
+            dot.className = 'history-dot';
+            dot.innerText = i;
+            historyContainer.appendChild(dot);
+        }
+    }
+
+    // 다음 숫자 뽑기
+    function pickNext() {
+        if (availableNumbers.length === 0) {
+            return;
+        }
+
+        const randomIndex = Math.floor(Math.random() * availableNumbers.length);
+        const selected = availableNumbers.splice(randomIndex, 1)[0];
+        pickedNumbers.push(selected);
+
+        // UI 업데이트
+        numberResult.innerText = selected;
+        numberResult.classList.remove('pop-animation');
+        void numberResult.offsetWidth; // 리플로우 강제 실행 (애니메이션 재시작용)
+        numberResult.classList.add('pop-animation');
+
+        // 상태 업데이트
+        document.getElementById(`dot-${selected}`).classList.add('active');
+        remainingCount.innerText = availableNumbers.length;
+
+        // 모든 숫자를 다 뽑았을 때
+        if (availableNumbers.length === 0) {
+            nextBtn.disabled = true;
+            nextBtn.classList.replace('bg-blue-500', 'bg-gray-300');
+            nextBtn.innerText = "모든 숫자를 뽑았습니다!";
+        }
+    }
+
+    // 리셋
+    function resetAll() {
+        maxNumber = 10;
+        availableNumbers = [];
+        pickedNumbers = [];
+        
+        maxDisplay.innerText = maxNumber;
+        numberResult.innerText = '?';
+        nextBtn.disabled = false;
+        nextBtn.classList.replace('bg-gray-300', 'bg-blue-500');
+        nextBtn.innerText = "다른 숫자 뽑기";
+
+        resultView.classList.add('hidden');
+        setupView.classList.remove('hidden');
+    }
+</script>
+
+</body>
+</html>
